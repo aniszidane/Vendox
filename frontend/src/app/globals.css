@@ -1,0 +1,183 @@
+/* VendoX — globals.css */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design Tokens ─────────────────────────────────────────────── */
+@layer base {
+  :root {
+    /* VendoX Brand — Deep Teal Palette */
+    --color-primary:        14 116 144;    /* teal-600 #0E7490 */
+    --color-primary-light:  8 145 178;     /* cyan-600 #0891B2 */
+    --color-primary-dark:   12 74 110;     /* #0C4A6E */
+    --color-primary-50:     236 254 255;
+    --color-primary-100:    207 250 254;
+
+    --color-surface:        255 255 255;
+    --color-surface-2:      248 250 252;
+    --color-surface-3:      241 245 249;
+    --color-border:         226 232 240;
+    --color-text:           15 23 42;
+    --color-text-muted:     100 116 139;
+    --color-text-light:     148 163 184;
+
+    --color-success:        22 163 74;
+    --color-warning:        245 158 11;
+    --color-danger:         220 38 38;
+
+    /* Spacing */
+    --bottom-nav-height: 72px;
+    --top-bar-height:    60px;
+
+    /* Radius */
+    --radius-xs:  6px;
+    --radius-sm:  10px;
+    --radius-md:  14px;
+    --radius-lg:  20px;
+    --radius-xl:  28px;
+    --radius-full: 9999px;
+
+    /* Shadows */
+    --shadow-card:  0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-nav:   0 -2px 20px rgba(0,0,0,0.08);
+    --shadow-modal: 0 20px 60px rgba(0,0,0,0.15);
+    --shadow-btn:   0 4px 14px rgba(14,116,144,0.3);
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font-dm-sans), system-ui, sans-serif;
+    color: rgb(var(--color-text));
+    background-color: rgb(var(--color-surface-2));
+    min-height: 100dvh;
+    overscroll-behavior: none;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-outfit), sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* ── Component Utilities ───────────────────────────────────────── */
+@layer components {
+  .vendox-card {
+    @apply bg-white rounded-2xl;
+    box-shadow: var(--shadow-card);
+  }
+
+  .vendox-btn-primary {
+    @apply flex items-center justify-center gap-2 rounded-full px-6 py-3 
+           text-sm font-semibold text-white transition-all duration-200
+           bg-[#0D7490] hover:bg-[#0891B2] active:scale-95;
+    box-shadow: var(--shadow-btn);
+  }
+
+  .vendox-btn-outline {
+    @apply flex items-center justify-center gap-2 rounded-full px-6 py-3
+           text-sm font-semibold text-[#0D7490] border-2 border-[#0D7490]
+           hover:bg-[#0D7490]/5 active:scale-95 transition-all duration-200 bg-white;
+  }
+
+  .vendox-input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-3
+           text-sm focus:outline-none focus:ring-2 focus:ring-[#0D7490]/30
+           focus:border-[#0D7490] placeholder:text-slate-400 transition-all duration-200;
+  }
+
+  .vendox-label {
+    @apply block text-sm font-medium text-slate-700 mb-1.5;
+  }
+
+  .bottom-nav-item {
+    @apply flex flex-col items-center gap-1 flex-1 py-2 px-1
+           text-slate-400 transition-all duration-200 cursor-pointer
+           hover:text-[#0D7490];
+  }
+
+  .bottom-nav-item.active {
+    @apply text-[#0D7490];
+  }
+
+  .category-badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full 
+           text-xs font-medium bg-white/90 border border-slate-100;
+  }
+
+  .verified-badge {
+    @apply inline-flex items-center justify-center w-4 h-4 
+           rounded-full bg-[#0D7490] text-white;
+  }
+
+  .page-container {
+    @apply max-w-xl mx-auto px-4;
+  }
+
+  .skeleton {
+    @apply animate-pulse bg-slate-200 rounded-lg;
+  }
+
+  /* Safe area padding for mobile */
+  .pb-safe {
+    padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 8px);
+  }
+
+  .pt-safe {
+    padding-top: calc(var(--top-bar-height) + env(safe-area-inset-top, 0px));
+  }
+}
+
+/* ── Animations ─────────────────────────────────────────────────── */
+@layer utilities {
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes slide-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes pulse-ring {
+    0%   { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+
+  .animate-fade-in-up  { animation: fade-in-up 0.4s ease forwards; }
+  .animate-fade-in     { animation: fade-in 0.3s ease forwards; }
+  .animate-slide-up    { animation: slide-up 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards; }
+  .animate-scale-in    { animation: scale-in 0.25s ease forwards; }
+  .animate-pulse-ring  { animation: pulse-ring 1.5s ease infinite; }
+
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.10s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.20s; }
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+/* ── Map ────────────────────────────────────────────────────────── */
+.leaflet-container { border-radius: var(--radius-lg); }
+.leaflet-control-zoom { border: none !important; box-shadow: var(--shadow-card) !important; }
+.leaflet-control-zoom a { border-radius: var(--radius-sm) !important; }

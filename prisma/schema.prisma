@@ -1,0 +1,575 @@
+// VendoX — Prisma Schema
+// PostgreSQL Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Role {
+  USER
+  STORE_OWNER
+  ADMIN
+}
+
+enum StoreStatus {
+  OPEN
+  CLOSED
+  TEMPORARILY_CLOSED
+}
+
+enum StoreVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum PostStatus {
+  PUBLISHED
+  DRAFT
+  ARCHIVED
+}
+
+enum ProductStatus {
+  AVAILABLE
+  OUT_OF_STOCK
+  DISCONTINUED
+}
+
+enum ServiceStatus {
+  AVAILABLE
+  UNAVAILABLE
+}
+
+enum KhasniStatus {
+  OPEN
+  CLOSED
+  FULFILLED
+}
+
+enum NotificationType {
+  NEW_FOLLOWER
+  NEW_POST
+  POST_LIKED
+  POST_COMMENTED
+  KHASNI_RESPONSE
+  STORE_VERIFIED
+  SYSTEM
+}
+
+enum ReportType {
+  POST
+  STORE
+  USER
+  PRODUCT
+  SERVICE
+  KHASNI_REQUEST
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+enum LikeTargetType {
+  POST
+  PRODUCT
+  SERVICE
+}
+
+// ============================================================
+// MODELS
+// ============================================================
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  emailVerified   Boolean   @default(false)
+  passwordHash    String?
+  googleId        String?   @unique
+  appleId         String?   @unique
+  fullName        String
+  username        String?   @unique
+  avatarUrl       String?
+  bio             String?
+  phone           String?
+  role            Role      @default(USER)
+  isActive        Boolean   @default(true)
+  isBanned        Boolean   @default(false)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  store           Store?
+  refreshTokens   RefreshToken[]
+  passwordResets  PasswordReset[]
+  notifications   Notification[]
+  comments        Comment[]
+  likes           Like[]
+  savedPosts      SavedPost[]
+  follows         Follow[]
+  khasniRequests  KhasniRequest[]
+  reports         Report[]        @relation("ReportedBy")
+  reportedAs      Report[]        @relation("ReportedUser")
+  reviews         Review[]
+
+  @@index([email])
+  @@index([googleId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id          String   @id @default(cuid())
+  tokenHash   String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  isRevoked   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+model PasswordReset {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@map("password_resets")
+}
+
+model StoreCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  nameAr      String?
+  nameFr      String?
+  slug        String   @unique
+  emoji       String?
+  iconUrl     String?
+  color       String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stores      Store[]
+  products    Product[]
+  services    Service[]
+  khasniReqs  KhasniRequest[]
+
+  @@map("store_categories")
+}
+
+model Store {
+  id                    String                  @id @default(cuid())
+  ownerId               String                  @unique
+  owner                 User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name                  String
+  slug                  String                  @unique
+  description           String?
+  logoUrl               String?
+  coverUrl              String?
+  categoryId            String?
+  category              StoreCategory?          @relation(fields: [categoryId], references: [id])
+
+  phone                 String?
+  whatsapp              String?
+  email                 String?
+  website               String?
+  facebookUrl           String?
+  instagramUrl          String?
+  tiktokUrl             String?
+
+  status                StoreStatus             @default(OPEN)
+  verificationStatus    StoreVerificationStatus @default(PENDING)
+  verifiedAt            DateTime?
+
+  isActive              Boolean                 @default(true)
+  isFeatured            Boolean                 @default(false)
+
+  // Stats (denormalized for performance)
+  followerCount         Int                     @default(0)
+  postCount             Int                     @default(0)
+  reviewCount           Int                     @default(0)
+  averageRating         Float                   @default(0)
+
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  // Relations
+  location              Location?
+  posts                 Post[]
+  products              Product[]
+  services              Service[]
+  followers             Follow[]
+  reviews               Review[]
+  khasniResponses       KhasniResponse[]
+  reports               Report[]                @relation("ReportedStore")
+
+  @@index([ownerId])
+  @@index([categoryId])
+  @@index([verificationStatus])
+  @@map("stores")
+}
+
+model Location {
+  id          String   @id @default(cuid())
+  storeId     String   @unique
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  address     String?
+  city        String?
+  wilaya      String?  // Algerian administrative division
+  country     String   @default("DZ")
+  latitude    Float?
+  longitude   Float?
+  plusCode    String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([latitude, longitude])
+  @@index([city])
+  @@index([wilaya])
+  @@map("locations")
+}
+
+model Post {
+  id          String      @id @default(cuid())
+  storeId     String
+  store       Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  caption     String?
+  status      PostStatus  @default(PUBLISHED)
+
+  // Stats (denormalized)
+  likeCount   Int         @default(0)
+  commentCount Int        @default(0)
+  saveCount   Int         @default(0)
+  shareCount  Int         @default(0)
+
+  publishedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  images      PostImage[]
+  comments    Comment[]
+  likes       Like[]
+  savedBy     SavedPost[]
+  reports     Report[]
+
+  @@index([storeId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("posts")
+}
+
+model PostImage {
+  id          String   @id @default(cuid())
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  url         String
+  publicId    String?  // Cloudinary public ID
+  width       Int?
+  height      Int?
+  altText     String?
+  sortOrder   Int      @default(0)
+
+  createdAt   DateTime @default(now())
+
+  @@index([postId])
+  @@map("post_images")
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  storeId     String
+  store       Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    StoreCategory? @relation(fields: [categoryId], references: [id])
+
+  name        String
+  description String?
+  price       Decimal?      @db.Decimal(10, 2)
+  currency    String        @default("DZD")
+  imageUrl    String?
+  images      String[]      // Array of image URLs
+  status      ProductStatus @default(AVAILABLE)
+  isFeatured  Boolean       @default(false)
+
+  // Stats
+  likeCount   Int           @default(0)
+  viewCount   Int           @default(0)
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  likes       Like[]
+  reports     Report[]
+
+  @@index([storeId])
+  @@index([categoryId])
+  @@index([status])
+  @@map("products")
+}
+
+model Service {
+  id          String        @id @default(cuid())
+  storeId     String
+  store       Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    StoreCategory? @relation(fields: [categoryId], references: [id])
+
+  name        String
+  description String?
+  price       Decimal?      @db.Decimal(10, 2)
+  priceRange  String?       // e.g., "2000 - 5000 DZD"
+  currency    String        @default("DZD")
+  imageUrl    String?
+  status      ServiceStatus @default(AVAILABLE)
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  likes       Like[]
+  reports     Report[]
+
+  @@index([storeId])
+  @@map("services")
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies     Comment[] @relation("CommentReplies")
+
+  content     String
+  likeCount   Int      @default(0)
+  isEdited    Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([postId])
+  @@index([userId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+model Like {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetType  LikeTargetType
+  postId      String?
+  post        Post?          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  serviceId   String?
+  service     Service?       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime       @default(now())
+
+  @@unique([userId, postId])
+  @@unique([userId, productId])
+  @@unique([userId, serviceId])
+  @@index([userId])
+  @@index([postId])
+  @@map("likes")
+}
+
+model SavedPost {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([userId])
+  @@map("saved_posts")
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, storeId])
+  @@index([userId])
+  @@index([storeId])
+  @@map("follows")
+}
+
+model KhasniRequest {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    StoreCategory? @relation(fields: [categoryId], references: [id])
+
+  title       String
+  description String?
+  imageUrl    String?
+  city        String?
+  wilaya      String?
+  budget      Decimal?     @db.Decimal(10, 2)
+  currency    String       @default("DZD")
+  status      KhasniStatus @default(OPEN)
+
+  // Stats
+  responseCount Int        @default(0)
+
+  expiresAt   DateTime?
+  closedAt    DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  responses   KhasniResponse[]
+  reports     Report[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([categoryId])
+  @@index([city])
+  @@map("khasni_requests")
+}
+
+model KhasniResponse {
+  id              String        @id @default(cuid())
+  requestId       String
+  request         KhasniRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  storeId         String
+  store           Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  message         String
+  price           Decimal?      @db.Decimal(10, 2)
+  currency        String        @default("DZD")
+  imageUrl        String?
+  isAccepted      Boolean       @default(false)
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([requestId, storeId])
+  @@index([requestId])
+  @@index([storeId])
+  @@map("khasni_responses")
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        NotificationType
+  title       String
+  message     String
+  imageUrl    String?
+  actionUrl   String?
+
+  // Optional references
+  actorId     String?   // who triggered the notification
+  postId      String?
+  storeId     String?
+  khasniId    String?
+
+  isRead      Boolean          @default(false)
+  readAt      DateTime?
+
+  createdAt   DateTime         @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  rating      Int      // 1-5
+  comment     String?
+  isVerified  Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, storeId])
+  @@index([storeId])
+  @@index([userId])
+  @@map("reviews")
+}
+
+model Report {
+  id            String       @id @default(cuid())
+  reportedById  String
+  reportedBy    User         @relation("ReportedBy", fields: [reportedById], references: [id], onDelete: Cascade)
+
+  type          ReportType
+  reason        String
+  description   String?
+  status        ReportStatus @default(PENDING)
+
+  // Target refs
+  reportedUserId  String?
+  reportedUser    User?    @relation("ReportedUser", fields: [reportedUserId], references: [id])
+  reportedStoreId String?
+  reportedStore   Store?   @relation("ReportedStore", fields: [reportedStoreId], references: [id])
+  postId          String?
+  post            Post?    @relation(fields: [postId], references: [id])
+  productId       String?
+  product         Product? @relation(fields: [productId], references: [id])
+  serviceId       String?
+  service         Service? @relation(fields: [serviceId], references: [id])
+  khasniRequestId String?
+  khasniRequest   KhasniRequest? @relation(fields: [khasniRequestId], references: [id])
+
+  reviewedById  String?
+  reviewedAt    DateTime?
+  adminNotes    String?
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([status])
+  @@index([type])
+  @@index([reportedById])
+  @@map("reports")
+}
